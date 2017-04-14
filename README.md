@@ -1,1 +1,1 @@
-# arcadia aka mucca project
+# arcadia
