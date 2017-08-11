@@ -1,6 +1,19 @@
+#include <SPI.h>
+
 #include <Flash.h>
 
 Flash flash;
+
+int tiltPin = 9;
+
+int reading;           // the current reading from the input pin
+int previous = LOW;
+int tiltState = LOW;    // the previous reading from the input pin
+ 
+// the follow variables are long's because the time, measured in miliseconds,
+// will quickly become a bigger number than can be stored in an int.
+long time = 0;         // the last time the output pin was toggled
+long debounce = 100;   // the debounce time, increase if the output flickers
 
 unsigned long sampleIndex = 4;
 uint32_t sampleSize = 0;
@@ -11,6 +24,9 @@ unsigned long bytesInBuffer = 0;
 
 void setup() {
   Serial.begin(115200);
+  
+  pinMode(tiltPin, INPUT);
+  //digitalWrite(tiltPin, HIGH);
  
   for (byte i=0;i<8;i++) {
     pinMode(i, OUTPUT); //set digital pins 0-7 as outputs
@@ -40,8 +56,10 @@ void setup() {
 }
 
 ISR(TIMER1_COMPA_vect) {//timer1 interrupt ~44.1kHz to send audio data (it is really 44.199kHz)
-  sample = getNextSample();
-  PORTD = sample;//send a value stored in the array sine out to the DAC through digital pins 0-7
+  if (tiltState == HIGH || sampleIndex != 0) {
+      sample = getNextSample();
+      PORTD = sample;//send a value stored in the array sine out to the DAC through digital pins 0-7
+  }
   if (sampleIndex == sampleSize){//reset index if it reaches the limit
     sampleIndex=0;
   }
@@ -68,5 +86,21 @@ byte getNextSample() {
 }
 
 void loop() {
+ 
+  reading = digitalRead(tiltPin);
+ 
+  // If the switch changed, due to bounce or pressing...
+  if (reading != previous) {
+    // reset the debouncing timer
+    time = millis();
+  } 
+ 
+  if ((millis() - time) > debounce) {
+     // whatever the switch is at, its been there for a long time
+     // so lets settle on it!
+     tiltState = reading;
+  }
+  // Save the last reading so we keep a running tally
+  previous = reading;
 }
 
